@@ -220,6 +220,193 @@ different teams, roles, or projects in the same repo.
 
 ---
 
+## Workflow Example: Sharing Your Full Copilot Setup
+
+Here's a real-world walkthrough — you have a local MCP setup, some Copilot
+skills, a handful of VS Code extensions, and a few tool installs you want
+your whole team running by end of week.
+
+### Step 1 — Lay out your profile
+
+```
+profiles/my-team/
+├── profile.toml
+└── copilot/
+    ├── instructions/
+    │   └── copilot-instructions.md      # your team's AI guidelines
+    ├── prompts/
+    │   └── code-review.prompt.md        # reusable prompt files
+    └── agents/
+        └── docs-writer.agent.yaml       # custom agent configs
+```
+
+### Step 2 — Define your MCP servers in `profile.toml`
+
+Add every MCP server your team uses. Leave secret values empty — the wizard
+will prompt each person individually.
+
+```toml
+[[mcp_servers]]
+name    = "github"
+command = "npx"
+args    = ["-y", "@modelcontextprotocol/server-github"]
+description = "Gives Copilot access to your GitHub repositories."
+[mcp_servers.env]
+GITHUB_PERSONAL_ACCESS_TOKEN = ""
+
+[[mcp_servers]]
+name    = "azure-devops"
+command = "npx"
+args    = ["-y", "@modelcontextprotocol/server-azure-devops"]
+description = "Connects Copilot to your Azure DevOps boards and repos."
+[mcp_servers.env]
+AZURE_DEVOPS_PAT = ""
+
+[[mcp_servers]]
+name    = "filesystem"
+command = "npx"
+args    = ["-y", "@modelcontextprotocol/server-filesystem", "C:/Projects"]
+description = "Lets Copilot read files in your local Projects folder."
+```
+
+### Step 3 — Add your extensions
+
+```toml
+[[extensions]]
+id          = "github.copilot"
+name        = "GitHub Copilot"
+description = "AI pair programmer that suggests code as you type."
+required    = true
+
+[[extensions]]
+id          = "github.copilot-chat"
+name        = "GitHub Copilot Chat"
+description = "Chat with AI about your code directly in the editor."
+required    = true
+
+[[extensions]]
+id          = "ms-python.python"
+name        = "Python"
+description = "Python language support — IntelliSense, linting, debugging."
+required    = true
+
+[[extensions]]
+id          = "ms-toolsai.jupyter"
+name        = "Jupyter"
+description = "Run and edit Jupyter notebooks inside VS Code."
+required    = false
+
+[[extensions]]
+id          = "esbenp.prettier-vscode"
+name        = "Prettier"
+description = "Automatically formats your code so it looks consistent."
+required    = false
+```
+
+### Step 4 — Add the installs your team needs
+
+```toml
+[[prerequisites]]
+name             = "uv"
+display_name     = "uv"
+description      = "A fast Python package manager that works behind the scenes."
+check_command    = "uv --version"
+install_command  = 'powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"'
+required         = true
+
+[[prerequisites]]
+name             = "node"
+display_name     = "Node.js"
+description      = "Required by MCP servers. It runs quietly in the background."
+check_command    = "node --version"
+install_command  = "winget install OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements"
+required         = true
+
+[[prerequisites]]
+name             = "git"
+display_name     = "Git"
+description      = "Version control — how your team tracks code changes."
+check_command    = "git --version"
+install_command  = "winget install Git.Git --accept-package-agreements --accept-source-agreements"
+required         = true
+
+[[prerequisites]]
+name             = "azure-cli"
+display_name     = "Azure CLI"
+description      = "Connects your tools to your company's cloud resources."
+check_command    = "az --version"
+install_command  = "winget install Microsoft.AzureCLI --accept-package-agreements --accept-source-agreements"
+required         = false
+```
+
+### Step 5 — Add guided sign-in steps
+
+```toml
+[[setup_steps]]
+name           = "azure-login"
+description    = "Sign in to Azure"
+step_type      = "guided"
+command        = "az login"
+verify_command = "az account show"
+error_help     = "If the browser didn't open, copy the URL from the terminal."
+guidance       = """
+A browser window will open. Please:
+  1. Sign in with your work email
+  2. Choose your organisation if prompted
+  3. Come back here when done
+"""
+
+[[setup_steps]]
+name           = "gh-auth"
+description    = "Sign in to GitHub"
+step_type      = "guided"
+command        = "gh auth login --web"
+verify_command = "gh auth status"
+error_help     = "Make sure you use your work GitHub account."
+guidance       = """
+Follow the prompts to sign in:
+  1. A code will appear — copy it
+  2. A browser opens — paste the code
+  3. Authorise access, then come back here
+"""
+```
+
+### Step 6 — Write your Copilot instructions
+
+Edit `copilot/instructions/copilot-instructions.md` with your team's norms:
+
+```markdown
+# Team Guidelines
+
+- We use Python 3.11+ with type hints everywhere
+- Follow PEP 8 and use Ruff for formatting
+- Prefer simple, readable code over clever solutions
+- All API endpoints must include error handling
+- Write docstrings for public functions
+```
+
+### Step 7 — Build, test, ship
+
+```bash
+# Validate your profile
+copilot-setup validate profiles/my-team
+
+# Test the wizard yourself
+copilot-setup install profiles/my-team
+
+# Build the bundle
+copilot-setup build profiles/my-team
+
+# Share dist/copilot-setup-my-team-v1.0.0.zip with your team
+```
+
+Your team members extract the zip, double-click `setup.bat`, and the wizard
+handles the rest — installs tools, sets up extensions, configures every MCP
+server (prompting for tokens), deploys your Copilot skills and instructions,
+walks through Azure/GitHub sign-in, and verifies everything works.
+
+---
+
 ## Project Structure
 
 ```
