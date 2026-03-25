@@ -1,0 +1,133 @@
+# ──────────────────────────────────────────────────────────────
+#  Team Profile — edit this file to customise your team's setup
+# ──────────────────────────────────────────────────────────────
+
+name        = "Engineering Team"
+version     = "1.0.0"
+description = "Standard GitHub Copilot environment for the engineering team"
+author      = "Copilot Lead"
+
+# Path to a copilot-instructions.md that will be placed in the
+# user's workspace .github/ folder.
+copilot_instructions_file = "copilot/instructions/copilot-instructions.md"
+
+
+# ── Prerequisites ────────────────────────────────────────────
+# Tools that must be installed before setup can proceed.
+# The installer checks for each one and offers to install it.
+
+[[prerequisites]]
+name             = "uv"
+display_name     = "uv (Python Package Manager)"
+description      = "A fast tool that manages Python packages behind the scenes. You won't need to use it directly."
+check_command    = "uv --version"
+install_command  = 'powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"'
+required         = true
+
+[[prerequisites]]
+name             = "vscode"
+display_name     = "Visual Studio Code"
+description      = "Your code editor — this is where you'll use Copilot every day."
+check_command    = "code --version"
+install_url      = "https://code.visualstudio.com/download"
+guidance         = "Download VS Code from the link above. Choose the 'User' installer for the simplest experience."
+required         = true
+
+[[prerequisites]]
+name             = "node"
+display_name     = "Node.js"
+description      = "A runtime needed by some Copilot extensions. It runs quietly in the background."
+check_command    = "node --version"
+install_command  = "winget install OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements"
+install_url      = "https://nodejs.org/"
+required         = true
+
+[[prerequisites]]
+name             = "azure-cli"
+display_name     = "Azure CLI"
+description      = "Connects your development tools to your company's Azure cloud resources."
+check_command    = "az --version"
+install_command  = "winget install Microsoft.AzureCLI --accept-package-agreements --accept-source-agreements"
+install_url      = "https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-windows"
+required         = false
+
+[[prerequisites]]
+name             = "gh"
+display_name     = "GitHub CLI"
+description      = "Lets you interact with GitHub repositories from your terminal."
+check_command    = "gh --version"
+install_command  = "winget install GitHub.cli --accept-package-agreements --accept-source-agreements"
+required         = false
+
+
+# ── VS Code Extensions ──────────────────────────────────────
+
+[[extensions]]
+id          = "github.copilot"
+name        = "GitHub Copilot"
+description = "AI pair programmer that suggests code as you type."
+required    = true
+
+[[extensions]]
+id          = "github.copilot-chat"
+name        = "GitHub Copilot Chat"
+description = "Chat with AI about your code directly in the editor."
+required    = true
+
+[[extensions]]
+id          = "ms-vscode.azure-account"
+name        = "Azure Account"
+description = "Manages your Azure sign-in for cloud-connected features."
+required    = false
+
+
+# ── MCP Servers ──────────────────────────────────────────────
+# Model Context Protocol servers that extend what Copilot can do.
+
+[[mcp_servers]]
+name        = "github"
+command     = "npx"
+args        = ["-y", "@modelcontextprotocol/server-github"]
+description = "Gives Copilot access to your GitHub repositories."
+
+[mcp_servers.env]
+GITHUB_PERSONAL_ACCESS_TOKEN = ""
+
+
+# ── Guided Setup Steps ──────────────────────────────────────
+# Steps that walk the user through first-time configuration.
+
+[[setup_steps]]
+name        = "azure-login"
+description = "Sign in to Azure"
+step_type   = "guided"
+command     = "az login"
+verify_command = "az account show"
+error_help  = "If the browser didn't open, copy the URL shown in the terminal into your browser."
+guidance    = """
+A browser window will open automatically. Please:
+
+  1. Sign in with your work email address
+  2. If prompted, choose your organisation
+  3. Come back here once the browser says you're signed in
+
+This connects your tools to your company's cloud resources.
+"""
+
+[[setup_steps]]
+name        = "gh-auth"
+description = "Sign in to GitHub"
+step_type   = "guided"
+command     = "gh auth login --web"
+verify_command = "gh auth status"
+error_help  = "Make sure you use your work GitHub account, not a personal one."
+guidance    = """
+Follow the prompts that appear here to sign in to GitHub:
+
+  1. A code will be shown — copy it
+  2. A browser window will open
+  3. Paste the code and authorise access
+  4. Come back here when finished
+
+This lets your tools access your team's code.
+"""
