@@ -6,6 +6,10 @@ A Copilot team lead uses this repo to assemble a polished setup bundle.
 Team members double-click `setup.bat` and follow a friendly wizard — no
 technical knowledge required.
 
+
+> [!IMPORTANT]
+> Make use of the [scan-copilot-environment skill](.github/copilot/skills/scan-copilot-environment.prompt.md) 👀
+
 ---
 
 ## How It Works
