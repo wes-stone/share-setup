@@ -147,6 +147,28 @@ GITHUB_PERSONAL_ACCESS_TOKEN = ""
 Keys in `secret_env_keys` will use hidden input (like a password prompt).
 Everything else uses visible input so users can see what they're typing.
 
+### ⚠️ Validate env values before using them
+
+The lead's VS Code settings may have **corrupted values** (e.g. from
+accidental multi-paste in the settings UI). Before writing any env value
+into the profile, check for these common issues:
+
+| Problem | How to spot it | What to do |
+|---------|---------------|------------|
+| **Duplicate URL** | Same URL appears 2–3 times concatenated (e.g. `https://example.comhttps://example.com`) | Use the URL only once |
+| **Trailing garbage** | Random characters after a valid URL (e.g. `https://example.comssss`) | Strip the extra characters |
+| **Wrong type** | A key named `*_DIR`, `*_PATH`, or `*_FOLDER` has a URL value, or a `*_URI`/`*_URL` key has a file path | Flag it and ask the user for the correct value |
+| **Suspiciously long** | Value is over 200 characters | Likely corrupted — ask the user to confirm |
+
+If you find a corrupted value:
+1. **Show the raw value** to the user and explain what looks wrong
+2. **Ask for the correct value** — don't silently fix it
+3. **Leave the key as `""`** in the profile if the user can't provide a clean
+   value — the build step will catch it and prompt the lead
+
+The `copilot-setup build` command also runs these checks, but catching
+issues early during profile creation saves the lead time.
+
 ---
 
 ## Step 3 — Scan for installed developer tools

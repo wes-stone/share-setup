@@ -192,6 +192,50 @@ def _load_lead_mcp_config() -> dict[str, dict]:
     return settings.get("github.copilot.chat.mcp.servers", {})
 
 
+def _validate_env_value(key: str, value: str) -> list[str]:
+    """Check an env value for common corruption patterns.
+
+    Returns a list of warning strings (empty if the value looks fine).
+    """
+    warnings: list[str] = []
+    if not value:
+        return warnings
+
+    # Duplicate URLs — same URL pasted multiple times
+    if value.startswith("http"):
+        # Split on "http" and check for repeats
+        parts = re.split(r"(https?://)", value)
+        url_count = sum(1 for p in parts if p.startswith("http"))
+        if url_count > 1:
+            warnings.append("looks like a URL pasted multiple times")
+
+    # Trailing garbage — random chars after a URL
+    url_match = re.match(r"https?://[\w.\-/]+", value)
+    if url_match and len(value) > len(url_match.group(0)):
+        tail = value[len(url_match.group(0)):]
+        if tail and not tail.startswith("?") and not tail.startswith("#"):
+            warnings.append(f"has unexpected characters at the end: '{tail}'")
+
+    # DIR/PATH key but value is a URL
+    path_hint_keys = {"DIR", "PATH", "FOLDER", "DIRECTORY", "ROOT", "HOME"}
+    key_upper = key.upper()
+    if any(hint in key_upper for hint in path_hint_keys):
+        if value.startswith("http://") or value.startswith("https://"):
+            warnings.append("key name suggests a file path but value is a URL")
+
+    # URI/URL key but value looks like a file path
+    uri_hint_keys = {"URI", "URL", "ENDPOINT", "HOST", "BASE_URL"}
+    if any(hint in key_upper for hint in uri_hint_keys):
+        if "\\" in value or (len(value) > 2 and value[1] == ":"):
+            warnings.append("key name suggests a URL but value looks like a file path")
+
+    # Suspiciously long — most env values shouldn't exceed 200 chars
+    if len(value) > 200:
+        warnings.append(f"unusually long ({len(value)} chars)")
+
+    return warnings
+
+
 def _capture_mcp_values(profile: Profile) -> Profile:
     """Give the lead full visibility and control over MCP env values.
 
@@ -243,9 +287,20 @@ def _capture_mcp_values(profile: Profile) -> Profile:
                 continue
 
             if current_val:
+                # Validate before showing
+                issues = _validate_env_value(key, current_val)
                 display = current_val if len(current_val) <= 60 else current_val[:57] + "..."
-                console.print(f"    [success]✓[/] {key} = [info]{display}[/]")
-                share = Confirm.ask("      Share with team?", default=True, console=console)
+
+                if issues:
+                    console.print(f"    [warning]⚠  {key}[/] = [info]{display}[/]")
+                    for issue in issues:
+                        console.print(f"       [warning]↳ {issue}[/]")
+                    console.print(f"       [warning]This value may be corrupted — check your VS Code settings.[/]")
+                    share = Confirm.ask("      Share with team anyway?", default=False, console=console)
+                else:
+                    console.print(f"    [success]✓[/] {key} = [info]{display}[/]")
+                    share = Confirm.ask("      Share with team?", default=True, console=console)
+
                 if share:
                     new_env[key] = current_val
                     if current_val != profile_val:
