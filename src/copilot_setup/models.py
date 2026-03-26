@@ -53,6 +53,10 @@ class MCPServer(BaseModel):
     args: list[str] = Field(default_factory=list, description="Command arguments")
     env: dict[str, str] = Field(default_factory=dict, description="Environment variables")
     description: Optional[str] = Field(default=None, description="What this server provides")
+    secret_env_keys: list[str] = Field(
+        default_factory=list,
+        description="Env var keys that are secrets (hidden input). All others use visible input.",
+    )
 
 
 class SetupStep(BaseModel):

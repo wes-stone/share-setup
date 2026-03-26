@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 from copilot_setup.installer.tui import (
+    prompt_input,
     prompt_secret,
     prompt_yes_no,
     show_error,
@@ -115,9 +116,12 @@ def _save_vscode_settings(settings: dict):
     tmp.replace(VSCODE_SETTINGS_FILE)
 
 
-def _collect_secrets(server: MCPServer) -> dict[str, str]:
-    """Prompt the user for any env vars that are empty (i.e. secrets to collect at install time)."""
-    collected: dict[str, str] = {}
+def _collect_env_values(server: MCPServer) -> dict[str, str]:
+    """Prompt the user for any env vars that are empty.
+
+    Values listed in ``server.secret_env_keys`` use hidden input (getpass);
+    everything else uses normal visible input so the user can see what they type.
+    """
     empty_keys = [k for k, v in server.env.items() if not v]
 
     if not empty_keys:
@@ -126,12 +130,17 @@ def _collect_secrets(server: MCPServer) -> dict[str, str]:
     result = dict(server.env)
     for key in empty_keys:
         friendly = key.replace("_", " ").title()
-        show_info(f"The '{server.name}' server needs a credential: {key}")
-        value = prompt_secret(
-            friendly,
-            description=f"This is used by the {server.name} MCP server. "
-            f"Ask your Copilot lead if you're unsure where to find it.",
+        show_info(f"The '{server.name}' server needs a value: {key}")
+        hint = (
+            f"This is used by the {server.name} MCP server. "
+            f"Ask your Copilot lead if you're unsure where to find it."
         )
+
+        if key in server.secret_env_keys:
+            value = prompt_secret(friendly, description=hint)
+        else:
+            value = prompt_input(friendly, description=hint)
+
         if value:
             result[key] = value
         else:
@@ -190,7 +199,7 @@ def handle_mcp_servers(
             show_info(f"  {server.description}")
 
         try:
-            env = _collect_secrets(server)
+            env = _collect_env_values(server)
             configure_mcp_server(server, settings, env)
             show_success(f"{server.name} — configured")
             succeeded.append(label)

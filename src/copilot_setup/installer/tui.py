@@ -171,6 +171,18 @@ def prompt_yes_no(question: str, default: bool = True) -> bool:
     return answer in ("y", "yes")
 
 
+def prompt_input(label: str, description: str | None = None) -> str:
+    """Prompt the user for a visible text value (e.g., a URL or path)."""
+    console.print()
+    if description:
+        console.print(f"  [info]ℹ[/]  {description}")
+    try:
+        value = console.input(f"  {label}: ")
+        return value.strip()
+    except (KeyboardInterrupt, EOFError):
+        return ""
+
+
 def prompt_secret(label: str, description: str | None = None) -> str:
     """Prompt the user for a secret value (e.g., API token) without echoing."""
     import getpass

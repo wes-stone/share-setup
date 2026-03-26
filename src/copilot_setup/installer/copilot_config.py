@@ -28,10 +28,12 @@ def handle_copilot_config(
 
     # Collect all copilot assets from the bundle
     copilot_dir = bundle_dir / "copilot"
+    extensions_dir = bundle_dir / "extensions"
     has_instructions = instructions_file and (bundle_dir / instructions_file).exists()
     has_copilot_assets = copilot_dir.exists() and any(copilot_dir.rglob("*"))
+    has_extensions = extensions_dir.exists() and any(extensions_dir.rglob("*"))
 
-    if not has_instructions and not has_copilot_assets:
+    if not has_instructions and not has_copilot_assets and not has_extensions:
         return [], [], []
 
     show_info("Your team has provided Copilot configuration files.")
@@ -78,9 +80,9 @@ def handle_copilot_config(
                 show_success(f"Copilot instructions → {dest}")
                 succeeded.append("Copilot instructions")
 
-        # Copy prompts, agents, etc.
+        # Copy prompts, agents, skills, etc.
         if has_copilot_assets:
-            for subdir in ("prompts", "agents"):
+            for subdir in ("prompts", "agents", "skills"):
                 src_sub = copilot_dir / subdir
                 if src_sub.exists() and any(src_sub.iterdir()):
                     dest_sub = github_dir / "copilot" / subdir
@@ -93,6 +95,19 @@ def handle_copilot_config(
                             shutil.copy2(item, dest_file)
                     show_success(f"Copilot {subdir} → {dest_sub}")
                     succeeded.append(f"Copilot {subdir}")
+
+        # Copy Copilot CLI extensions (.github/extensions/)
+        if has_extensions:
+            dest_ext = github_dir / "extensions"
+            dest_ext.mkdir(parents=True, exist_ok=True)
+            for item in extensions_dir.iterdir():
+                if item.is_file():
+                    dest_file = dest_ext / item.name
+                    if dest_file.exists():
+                        show_info(f"Overwriting existing extension: {item.name}")
+                    shutil.copy2(item, dest_file)
+            show_success(f"Copilot extensions → {dest_ext}")
+            succeeded.append("Copilot extensions")
 
     except Exception as exc:
         show_warning(f"Could not copy Copilot files: {exc}")

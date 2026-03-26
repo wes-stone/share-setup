@@ -26,7 +26,10 @@ def _has_copilot_assets(profile: Profile, bundle_dir: Path) -> bool:
     if profile.copilot_instructions_file:
         return True
     copilot_dir = bundle_dir / "copilot"
-    return copilot_dir.exists() and any(copilot_dir.rglob("*"))
+    extensions_dir = bundle_dir / "extensions"
+    has_copilot = copilot_dir.exists() and any(copilot_dir.rglob("*"))
+    has_extensions = extensions_dir.exists() and any(extensions_dir.rglob("*"))
+    return has_copilot or has_extensions
 
 
 def _build_step_overview(profile: Profile, bundle_dir: Path) -> list[str]:
@@ -39,7 +42,7 @@ def _build_step_overview(profile: Profile, bundle_dir: Path) -> list[str]:
     if profile.mcp_servers:
         steps.append("Configure AI assistant connections")
     if _has_copilot_assets(profile, bundle_dir):
-        steps.append("Install Copilot team configuration")
+        steps.append("Install Copilot team configuration (instructions, skills, extensions)")
     if profile.setup_steps:
         steps.append("Walk you through first-time sign-ins")
     steps.append("Verify everything is working")
