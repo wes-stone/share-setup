@@ -102,10 +102,25 @@ Look for the key `github.copilot.chat.mcp.servers` (or `mcp.servers` or
 similar MCP configuration blocks). For each server found, extract:
 
 - `name` — the server key
-- `command` — the launch command
-- `args` — command arguments
+- `command` — the launch command **exactly as configured** (even if empty)
+- `args` — command arguments **exactly as configured** (even if some are empty strings)
 - `env` — environment variables
 - Write a plain-language `description` explaining what the server does
+
+### 🔑 Core principle: Copy the lead's config 1:1
+
+The goal is to reproduce the lead's **exact** working setup. Do NOT
+question or skip servers that have empty commands, empty args, or unusual
+configurations — copy them faithfully into the profile. The lead's setup
+works on their machine; the build step will handle validation and let
+the lead decide what to share.
+
+- **Empty commands** — some servers may be placeholders or configured
+  elsewhere. Include them as-is.
+- **Empty `--directory ""` or similar args** — include them. The installer
+  or build step will prompt if needed.
+- **Include ALL servers found** — don't ask "should I include this one?"
+  unless the user explicitly asked you to be selective.
 
 ### Classifying env vars — secrets vs shareable values
 
@@ -358,12 +373,18 @@ Tell the user:
 
 ## Important rules
 
+- **Copy the lead's setup 1:1.** The goal is to reproduce their exact
+  working environment. Include ALL MCP servers, ALL extensions, and ALL
+  tools found — don't skip or question things that look incomplete. The
+  build step handles validation and lets the lead make final decisions.
 - **Never include real secrets, tokens, or passwords in the profile.**
   Replace them with `""` and add the key name to `secret_env_keys`.
 - **Shareable config values** (URIs, DB names, paths) should also be `""`
   in the profile — the lead will share them during `copilot-setup build`.
 - **Write descriptions for a non-technical audience.** Avoid jargon.
-- **Ask before including** anything that seems personal or team-specific.
+- **Don't ask "should I include X?"** for every server or extension.
+  Include everything by default. Only ask about items that are clearly
+  personal (themes, icon packs) or that the user explicitly asked to filter.
 - **Show the user the generated profile** and ask if they'd like to adjust
   anything before saving.
 - When the user confirms, save to `profiles/<name>/profile.toml` and copy
@@ -375,7 +396,7 @@ Before saving the profile, verify every block has its required fields:
 
 - [ ] Every `[[prerequisites]]` has `name`, `display_name`, `description`, `check_command`
 - [ ] Every `[[extensions]]` has `id` and `name`
-- [ ] Every `[[mcp_servers]]` has `name` and `command`
+- [ ] Every `[[mcp_servers]]` has `name` and `command` (command may be `""` — that's OK)
 - [ ] Every `[[setup_steps]]` has `name` and `description`
 - [ ] No real secrets or tokens appear as values — only `""`
 - [ ] Secret keys are listed in `secret_env_keys`
