@@ -60,12 +60,29 @@ def _install_copilot_extension() -> bool:
         return False
 
 
+def _install_copilot_standalone() -> bool:
+    """Install the standalone GitHub Copilot CLI agent via winget."""
+    show_info("Installing GitHub Copilot CLI — this may take a moment...")
+    try:
+        result = subprocess.run(
+            "winget install GitHub.Copilot --accept-package-agreements --accept-source-agreements",
+            shell=True,
+            timeout=300,
+        )
+        refresh_path()
+        return result.returncode == 0 and _cmd_ok("github-copilot --version")
+    except subprocess.TimeoutExpired:
+        show_error("GitHub Copilot CLI installation timed out.")
+        return False
+
+
 def ensure_copilot_cli() -> bool:
     """
-    Make sure GitHub CLI + Copilot extension are available.
+    Make sure GitHub CLI + Copilot extension + standalone Copilot CLI
+    are all available.
 
     Runs early in the wizard so users can get AI help if anything
-    goes wrong later.  Returns True if Copilot CLI is ready.
+    goes wrong later.  Returns True if at least gh copilot is ready.
     """
     # ── 1. GitHub CLI ───────────────────────────────────────
     if _cmd_ok("gh --version"):
@@ -103,18 +120,37 @@ def ensure_copilot_cli() -> bool:
             else:
                 show_warning("GitHub sign-in could not be verified. Continuing anyway.")
 
-    # ── 3. Copilot extension ────────────────────────────────
+    # ── 3. gh copilot extension ─────────────────────────────
     if _cmd_ok("gh copilot --version"):
-        show_success("GitHub Copilot CLI — ready")
-        return True
+        show_success("GitHub Copilot (gh extension) — ready")
+    else:
+        show_info("Installing GitHub Copilot CLI extension (one-time setup)...")
+        if _install_copilot_extension():
+            show_success("GitHub Copilot (gh extension) — ready!")
+        else:
+            show_warning(
+                "Could not install the Copilot extension. "
+                "You can install it later with: gh extension install github/gh-copilot"
+            )
 
-    show_info("Installing GitHub Copilot CLI extension (one-time setup)...")
-    if _install_copilot_extension():
-        show_success("GitHub Copilot CLI — ready!")
-        return True
+    # ── 4. Standalone Copilot CLI agent ─────────────────────
+    if _cmd_ok("github-copilot --version"):
+        show_success("GitHub Copilot CLI (standalone) — ready")
+    else:
+        show_info("The standalone Copilot CLI is an AI coding agent for your terminal.")
+        if not prompt_yes_no("Install GitHub Copilot CLI now?"):
+            show_warning("Skipped — install later with: winget install GitHub.Copilot")
+        else:
+            if _install_copilot_standalone():
+                show_success("GitHub Copilot CLI (standalone) — installed!")
+                show_info(
+                    "To get started, run [bold]github-copilot[/] in your terminal "
+                    "and type [bold]/login[/] to sign in."
+                )
+            else:
+                show_warning(
+                    "Could not install the standalone Copilot CLI. "
+                    "Install later with: winget install GitHub.Copilot"
+                )
 
-    show_warning(
-        "Could not install the Copilot CLI extension. "
-        "You can install it later with: gh extension install github/gh-copilot"
-    )
-    return False
+    return _cmd_ok("gh copilot --version") or _cmd_ok("github-copilot --version")
