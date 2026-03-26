@@ -193,57 +193,74 @@ def _load_lead_mcp_config() -> dict[str, dict]:
 
 
 def _capture_mcp_values(profile: Profile) -> Profile:
-    """Ask the lead which MCP env values to share with the team.
+    """Give the lead full visibility and control over MCP env values.
 
-    Reads the lead's VS Code MCP config, matches servers from the profile,
-    and offers to bake env values into the profile so team members skip prompts.
-    Returns a new Profile with updated env values.
+    For each server, shows a summary of what will be shared vs prompted,
+    and lets the lead override any value — whether it's already set in the
+    profile or currently empty.  Returns a new Profile with final values.
     """
     if not profile.mcp_servers:
         return profile
 
     lead_config = _load_lead_mcp_config()
-    if not lead_config:
-        console.print("  [info]ℹ[/]  No MCP servers found in your VS Code settings — skipping value capture.")
-        return profile
 
     console.print()
-    console.print("  [bold]Share your MCP configuration with the team?[/]")
-    console.print("  [muted]Values you share will be baked into the bundle so your team[/]")
-    console.print("  [muted]doesn't have to enter them. You can skip any you want to keep private.[/]")
+    console.print("  [bold]Review MCP configuration for the team bundle[/]")
+    console.print("  [muted]Values marked ✓ will be baked in — your team won't need to enter them.[/]")
+    console.print("  [muted]Empty values will be prompted during setup.[/]")
     console.print()
 
     updated_servers = []
+    any_changes = False
+
     for server in profile.mcp_servers:
-        lead_server = lead_config.get(server.name, {})
-        lead_env = lead_server.get("env", {})
-
-        if not lead_env:
+        if not server.env:
             updated_servers.append(server)
             continue
 
-        # Find empty keys in the profile that the lead has configured
-        empty_keys = [k for k, v in server.env.items() if not v]
-        shareable_keys = [k for k in empty_keys if lead_env.get(k)]
-
-        if not shareable_keys:
-            updated_servers.append(server)
-            continue
+        lead_env = lead_config.get(server.name, {}).get("env", {})
+        secret_keys = set(server.secret_env_keys)
 
         console.print(f"  [step]─── {server.name} ───[/]")
-        new_env = dict(server.env)
-        for key in shareable_keys:
-            lead_value = lead_env[key]
-            # Truncate display for long values
-            display_val = lead_value if len(lead_value) <= 60 else lead_value[:57] + "..."
-            console.print(f"    {key} = [info]{display_val}[/]")
+        if server.description:
+            console.print(f"  [muted]{server.description}[/]")
+        console.print()
 
-            share = Confirm.ask(f"    Share this with your team?", default=True, console=console)
-            if share:
-                new_env[key] = lead_value
-                console.print(f"    [success]✓[/] Will be shared")
+        new_env = dict(server.env)
+        has_decisions = False
+
+        for key, profile_val in server.env.items():
+            is_secret = key in secret_keys
+
+            # Determine the best available value
+            lead_val = lead_env.get(key, "")
+            current_val = profile_val or lead_val
+
+            if is_secret:
+                # Secrets are NEVER baked in — always prompted per-user
+                console.print(f"    [muted]🔒 {key}[/] — each person enters their own (secret)")
+                new_env[key] = ""
+                continue
+
+            if current_val:
+                display = current_val if len(current_val) <= 60 else current_val[:57] + "..."
+                console.print(f"    [success]✓[/] {key} = [info]{display}[/]")
+                share = Confirm.ask("      Share with team?", default=True, console=console)
+                if share:
+                    new_env[key] = current_val
+                    if current_val != profile_val:
+                        any_changes = True
+                else:
+                    new_env[key] = ""
+                    if profile_val:
+                        any_changes = True
+                    console.print(f"      [muted]– Team will be prompted[/]")
+                has_decisions = True
             else:
-                console.print(f"    [muted]– Skipped (team will be prompted)[/]")
+                console.print(f"    [warning]○[/] {key} = [muted](empty — team will be prompted)[/]")
+
+        if not has_decisions:
+            console.print(f"    [muted]No shareable values to configure.[/]")
 
         updated_server = server.model_copy(update={"env": new_env})
         updated_servers.append(updated_server)

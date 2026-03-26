@@ -15,6 +15,54 @@ a complete profile. Use the terminal tool to execute commands.
 
 ---
 
+## ⚠️ REQUIRED FIELDS — Schema Reference
+
+Every block in profile.toml must include ALL required fields or the build
+will fail. Check this table before generating any TOML:
+
+### `[[prerequisites]]` — required fields
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | ✅ | Machine-friendly ID (e.g. `"git"`) |
+| `display_name` | string | ✅ | Human-friendly name (e.g. `"Git"`) |
+| `description` | string | ✅ | Plain-language explanation |
+| `check_command` | string | ✅ | Shell command that succeeds when installed |
+| `install_command` | string | optional | Auto-install command |
+| `install_url` | string | optional | Manual download URL |
+| `required` | bool | optional | Default `true` |
+| `guidance` | string | optional | Help text for manual install |
+
+### `[[extensions]]` — required fields
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | string | ✅ | Marketplace ID (e.g. `"github.copilot-chat"`) |
+| `name` | string | ✅ | Display name (e.g. `"GitHub Copilot Chat"`) |
+| `description` | string | optional | What this extension does |
+| `required` | bool | optional | Default `true` |
+
+### `[[mcp_servers]]` — required fields
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | ✅ | Server identifier key |
+| `command` | string | ✅ | Launch command |
+| `args` | list[string] | optional | Command arguments |
+| `description` | string | optional | What this server provides |
+| `secret_env_keys` | list[string] | optional | Keys that use hidden input |
+| `[mcp_servers.env]` | key-value | optional | Environment variables |
+
+### `[[setup_steps]]` — required fields
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | ✅ | Step identifier |
+| `description` | string | ✅ | Short title shown in the wizard |
+| `step_type` | string | optional | `"auto"`, `"guided"`, or `"info"` |
+| `command` | string | optional | Command to run |
+| `guidance` | string | optional | Instructions for guided steps |
+| `verify_command` | string | optional | Command to verify completion |
+| `error_help` | string | optional | Help text shown on failure |
+
+---
+
 ## Step 1 — Scan installed VS Code extensions
 
 Run this command and capture the full output:
@@ -30,6 +78,15 @@ personal preference extensions unless the user asks to include them.
 Categorise each as `required = true` (essential for the team) or
 `required = false` (nice to have). Use your judgement, but always mark
 GitHub Copilot and Copilot Chat as required.
+
+**Every extension block MUST have both `id` and `name`:**
+```toml
+[[extensions]]
+id          = "github.copilot-chat"
+name        = "GitHub Copilot Chat"
+description = "Chat with AI about your code directly in the editor."
+required    = true
+```
 
 ---
 
@@ -113,12 +170,26 @@ include tools that are actually installed:
 | Go | `go version` |
 | Rust | `rustc --version` |
 
-For each installed tool, generate a `[[prerequisites]]` block with:
+For each installed tool, generate a `[[prerequisites]]` block with ALL
+required fields — **especially `display_name`** (the build will fail without it):
 
-- A **jargon-free `description`** that a non-technical person would understand
-- The appropriate `check_command`
-- A `install_command` using `winget` (Windows) or `brew` (macOS) where possible
-- An `install_url` as fallback
+```toml
+[[prerequisites]]
+name            = "git"
+display_name    = "Git"
+description     = "Version control — tracks changes to your code."
+check_command   = "git --version"
+install_command = "winget install --id Git.Git -e --source winget"
+install_url     = "https://git-scm.com/downloads"
+guidance        = "Download and run the installer. Accept the defaults."
+required        = true
+```
+
+- `display_name` — Human-friendly name (Git, Python, Azure CLI, etc.)
+- `description` — **jargon-free**, a non-technical person should understand it
+- `check_command` — the command that succeeds when the tool is installed
+- `install_command` using `winget` (Windows) or `brew` (macOS) where possible
+- `install_url` as fallback
 - `required = true` for essential tools, `false` for optional ones
 
 ---
@@ -173,22 +244,44 @@ author      = "<user's name — ask>"
 copilot_instructions_file = "copilot/instructions/copilot-instructions.md"
 
 # ── Prerequisites ────────────────────────────────────────────
+# Every block MUST have: name, display_name, description, check_command
 [[prerequisites]]
-# ... one block per tool
+name            = "git"
+display_name    = "Git"
+description     = "Version control — tracks changes to your code."
+check_command   = "git --version"
+install_command = "winget install --id Git.Git -e --source winget"
+install_url     = "https://git-scm.com/downloads"
+guidance        = "Download and run the installer. Accept the defaults."
+required        = true
 
 # ── VS Code Extensions ──────────────────────────────────────
+# Every block MUST have: id, name
 [[extensions]]
-# ... one block per extension
+id          = "github.copilot-chat"
+name        = "GitHub Copilot Chat"
+description = "Chat with AI about your code directly in the editor."
+required    = true
 
 # ── MCP Servers ──────────────────────────────────────────────
-[[mcp_servers]]
-# ... one block per server
+# Every block MUST have: name, command
 # Include secret_env_keys = ["KEY"] for actual secrets (tokens, passwords)
-# Leave it empty or omit for shareable config (URIs, paths, DB names)
+# Leave env values as "" — the lead shares them during `copilot-setup build`
+[[mcp_servers]]
+name            = "azure-mcp"
+command         = "npx"
+args            = ["-y", "@azure/mcp@latest", "server", "start"]
+description     = "Gives Copilot access to Azure resources."
 
 # ── Guided Setup Steps ──────────────────────────────────────
+# Every block MUST have: name, description
 [[setup_steps]]
-# ... one block per auth/setup flow
+name           = "azure-login"
+description    = "Sign in to Azure"
+step_type      = "guided"
+command        = "az login"
+verify_command = "az account show"
+guidance       = "A browser window will open. Sign in with your work email."
 ```
 
 ---
@@ -253,3 +346,17 @@ Tell the user:
   anything before saving.
 - When the user confirms, save to `profiles/<name>/profile.toml` and copy
   all selected Copilot files into the profile directory.
+
+### Pre-save validation checklist
+
+Before saving the profile, verify every block has its required fields:
+
+- [ ] Every `[[prerequisites]]` has `name`, `display_name`, `description`, `check_command`
+- [ ] Every `[[extensions]]` has `id` and `name`
+- [ ] Every `[[mcp_servers]]` has `name` and `command`
+- [ ] Every `[[setup_steps]]` has `name` and `description`
+- [ ] No real secrets or tokens appear as values — only `""`
+- [ ] Secret keys are listed in `secret_env_keys`
+
+If any required field is missing, the `copilot-setup build` command will
+fail with a validation error. Double-check before saving.
