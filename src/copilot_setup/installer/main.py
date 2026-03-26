@@ -5,11 +5,13 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from copilot_setup.installer.copilot_cli import ensure_copilot_cli
 from copilot_setup.installer.extensions import handle_extensions
 from copilot_setup.installer.guided import handle_setup_steps
 from copilot_setup.installer.mcp import handle_mcp_servers
 from copilot_setup.installer.prereqs import handle_prerequisites
 from copilot_setup.installer.copilot_config import handle_copilot_config
+from copilot_setup.installer.troubleshoot import show_help_options, write_setup_state
 from copilot_setup.installer.tui import (
     console,
     prompt_continue,
@@ -34,7 +36,8 @@ def _has_copilot_assets(profile: Profile, bundle_dir: Path) -> bool:
 
 def _build_step_overview(profile: Profile, bundle_dir: Path) -> list[str]:
     """Build a human-readable list of what the wizard will do."""
-    steps = ["Check your system for required tools"]
+    steps = ["Set up GitHub Copilot CLI for terminal help"]
+    steps.append("Check your system for required tools")
     if profile.prerequisites:
         steps.append("Install any missing tools")
     if profile.extensions:
@@ -61,10 +64,11 @@ def run_installer(profile_path: Path):
     all_succeeded: list[str] = []
     all_skipped: list[str] = []
     all_failed: list[str] = []
+    copilot_cli_ok = False
 
     # Calculate total phases for step numbering
     bundle_dir = profile_path.parent
-    phases: list[str] = []
+    phases: list[str] = ["copilot_cli"]  # always first
     if profile.prerequisites:
         phases.append("prereqs")
     if profile.extensions:
@@ -87,6 +91,16 @@ def run_installer(profile_path: Path):
         console.print("\n  [muted]Setup cancelled.[/]\n")
         sys.exit(0)
 
+    # ── Copilot CLI Bootstrap ────────────────────────────────
+    if "copilot_cli" in phases:
+        current += 1
+        show_step_header(current, total, "Setting Up Copilot CLI")
+        copilot_cli_ok = ensure_copilot_cli()
+        if copilot_cli_ok:
+            all_succeeded.append("GitHub Copilot CLI")
+        else:
+            all_skipped.append("GitHub Copilot CLI")
+
     # ── Prerequisites ────────────────────────────────────────
     if "prereqs" in phases:
         current += 1
@@ -102,8 +116,7 @@ def run_installer(profile_path: Path):
                 "  You can re-run this wizard after installing them manually.\n"
             )
             if not prompt_continue("Press Enter to continue anyway, or Ctrl-C to stop..."):
-                show_summary(all_succeeded, all_skipped, all_failed)
-                sys.exit(1)
+                _dump_and_exit(profile, bundle_dir, all_succeeded, all_skipped, all_failed, copilot_cli_ok)
 
     # ── Extensions ───────────────────────────────────────────
     if "extensions" in phases:
@@ -154,4 +167,30 @@ def run_installer(profile_path: Path):
     # ── Summary ──────────────────────────────────────────────
     show_summary(all_succeeded, all_skipped, all_failed)
 
+    # Dump state when there are failures so users can get help
+    if all_failed or all_skipped:
+        state_path = write_setup_state(
+            profile.name, all_succeeded, all_skipped, all_failed,
+            bundle_dir, copilot_cli_ok,
+        )
+        show_help_options(state_path, copilot_cli_ok)
+
     sys.exit(1 if all_failed else 0)
+
+
+def _dump_and_exit(
+    profile: Profile,
+    bundle_dir: Path,
+    succeeded: list[str],
+    skipped: list[str],
+    failed: list[str],
+    copilot_cli_ok: bool,
+):
+    """Write troubleshooting state and exit early."""
+    show_summary(succeeded, skipped, failed)
+    state_path = write_setup_state(
+        profile.name, succeeded, skipped, failed,
+        bundle_dir, copilot_cli_ok,
+    )
+    show_help_options(state_path, copilot_cli_ok)
+    sys.exit(1)

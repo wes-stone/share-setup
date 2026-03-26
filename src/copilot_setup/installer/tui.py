@@ -133,7 +133,7 @@ def show_summary(
     else:
         console.print(
             "  [warning]Some steps need attention.[/] Re-run this wizard to retry,\n"
-            "  or contact your team's Copilot lead for help.\n"
+            "  or see below for how to get AI help troubleshooting.\n"
         )
 
 
