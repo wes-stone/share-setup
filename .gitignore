@@ -1,6 +1,11 @@
 # Generated bundles
 dist/
 
+# Team profiles — contain company-specific MCP URLs, server configs, etc.
+# Only profiles/default/ is committed as an example.
+profiles/*/
+!profiles/default/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
